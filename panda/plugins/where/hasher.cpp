@@ -10,24 +10,22 @@
 using namespace std;
 using namespace xxh;
 
-const int PAGE_LEN = 1 << 12;
-
-void hash_file(char *filename) {
+void hash_file(const char *filename, int increment, int offset = 0) {
+  vector< char > buf(increment);
   ifstream fin(filename);
-  int offset = 0;
+  fin.seekg(offset);
   while (fin) {
-    char buf[PAGE_LEN];
-    bzero(buf, PAGE_LEN);
-    fin.read(buf, PAGE_LEN);
-    hash64_t digest = xxhash< 64 >(buf, PAGE_LEN);
-    cout << setfill('0') << setw(16) << hex << digest << ":" << dec << offset << ":" << filename << endl;
-    offset += PAGE_LEN;
+    bzero(buf.data(), increment);
+    fin.read(buf.data(), increment);
+    hash64_t digest = xxhash< 64 >(buf, increment);
+    cout << setfill('0') << setw(16) << hex << digest << ":" << offset << ":" << filename << endl;
+    offset += increment;
   }
 }
 
 int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; i++) {
-    hash_file(argv[i]);
+    hash_file(argv[i], 0x100);
   }
   return 0;
 }

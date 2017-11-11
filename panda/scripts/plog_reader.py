@@ -18,6 +18,7 @@ try_path(panda_dir, 'build')
 try_path(panda_dir)
 try_path(dirname(panda_dir), 'opt-panda')
 try_path(dirname(panda_dir), 'debug-panda')
+try_path(dirname(panda_dir), 'panda-build')
 import plog_pb2
 
 f = open(sys.argv[1])
