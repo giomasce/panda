@@ -48,24 +48,74 @@ import capstone
 class WhereParser:
     def __init__(self):
         self.md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_32)
+        self.print_tbs = False
+        self.prev_msg = None
+
+    def print_message(self, msg):
+        where = msg.where
+        print " -- PC = %x, ASID = %x, kernel = %s, instr = %d" % (msg.pc, where.asid, where.in_kernel, msg.instr),
+        if where.HasField('filename'):
+            print ", pos = %s:0x%x%s" % (where.filename, where.pos, "" if where.unique_digest else "*")
+            disasm = self.disasm_msg(msg)
+            for inst in disasm:
+                print "0x%08x:\t%s\t%s" %(inst.address, inst.mnemonic, inst.op_str)
+        else:
+            print ""
+
+    def disasm_msg(self, msg):
+        where = msg.where
+        with open(where.filename) as fin:
+            fin.seek(where.pos)
+            code = fin.read(where.tb_size)
+            return self.md.disasm(code, where.pos)
+
+    def test_event(self, msg):
+        where = msg.where
+        if self.prev_msg is None:
+            return
+        prev_msg = self.prev_msg
+        prev_where = self.prev_msg.where
+
+        # You can play with the conditions below to select the events interesting to you
+        #if not where.HasField('filename'):
+        #    return
+        #if not where.filename.endswith('executable.exe'):
+        #    return
+        #if not prev_where.HasField('filename'):
+        #    return
+        #if where.filename == prev_where.filename:
+        #    return
+
+        # Find ring changes
+        if prev_where.in_kernel == where.in_kernel:
+            return
+        # Select kernel entries
+        #if prev_where.in_kernel and not where.in_kernel:
+        #    return
+        # Select kernel exits
+        #if not prev_where.in_kernel and where.in_kernel:
+        #    return
+
+        #if prev_where.HasField('filename'):
+        #    prev_disasm = list(self.disasm_msg(prev_msg))
+        #    if prev_disasm[-1].mnemonic == "sysenter":
+        #        return
+        #    if prev_disasm[-1].mnemonic == "call" and prev_msg.where.in_kernel and where.in_kernel:
+        #        return
+
+        # If nothing impeded, then the event is interesting and we print it
+        self.print_message(prev_msg)
+        self.print_message(msg)
+        print
 
     def parse_message(self, msg):
         #print msg.where
         #print dir(msg.where)
         if not msg.HasField('where'):
             return
-        where = msg.where
-        print " -- PC = %x, ASID = %x, kernel = %s" % (msg.pc, where.asid, where.in_kernel),
-        if where.HasField('filename'):
-            print ", pos = %s:0x%x%s" % (where.filename, where.pos, "" if where.unique_digest else "*")
-            with open(where.filename) as fin:
-                fin.seek(where.pos)
-                code = fin.read(where.tb_size)
-                disasm = self.md.disasm(code, where.pos)
-                for inst in disasm:
-                    print "0x%x:\t%s\t%s" %(inst.address, inst.mnemonic, inst.op_str)
-        else:
-            print ""
+        self.test_event(msg)
+        #self.print_message(msg)
+        self.prev_msg = msg
 
 parser = WhereParser()
 for entry, next_entry in zip(entries, entries[1:]):
